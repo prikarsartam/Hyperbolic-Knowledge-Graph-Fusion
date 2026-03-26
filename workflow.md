@@ -3,11 +3,8 @@
 ## Full Build Workflow
 1. Initialize a blank Ubuntu environment.
 2. `sudo apt-get update && sudo apt-get install build-essential cmake openjdk-11-jdk wget curl unzip`
-3. Fetch the LLM: `bash scripts/fetch_models.sh`
-4. Setup GROBID: `bash scripts/install_grobid.sh`
-5. Compile frontend: `cd frontend && npm install && npm run build`
-6. `pip install -r requirements.txt` (or via scripts)
-7. Start daemons: `./start.sh`
+3. Run the installation script: `./install.sh`
+4. Start daemons: `./start.sh`
 
 ## Data Flow
 - **Input:** Single byte-stream POST to `/upload` FastAPI.

@@ -17,15 +17,11 @@ The pipeline consists of four localized stages executing sequentially:
 
 ## Installation Instructions
 
-1. Fetch the `DeepSeek-R1-1.5B` via the internal script mapping:
+1. Run the unified installation orchestrator to initialize models, grobid daemon, frontend dependencies, and the python virtual environment:
    ```bash
-   bash scripts/fetch_models.sh
+   ./install.sh
    ```
-2. Compile and start Grobid Server Backend:
-   ```bash
-   bash scripts/install_grobid.sh
-   ```
-3. Check `configs/settings.yaml` to modulate memory. Default runs 4 CPU Threads and hard-caps execution at an empirically tested threshold of 12-16GB.
+2. Check `configs/settings.yaml` to modulate memory. Default runs 4 CPU Threads and hard-caps execution at an empirically tested threshold of 12-16GB.
 
 ## Usage Guide
 Run the orchestrator bash file:
