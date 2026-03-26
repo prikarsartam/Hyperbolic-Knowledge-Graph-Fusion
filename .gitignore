@@ -1,0 +1,21 @@
+# Node and Build Output
+frontend/node_modules/
+frontend/dist/
+
+# Python Virtual Env and Cache
+venv/
+__pycache__/
+*.pyc
+
+# Heavy ML Models and Runtime Data Directories
+data/models/*.gguf
+data/uploads/
+data/sessions/
+
+# GROBID Daemon (Source & Binaries are ~350MB+)
+grobid/
+
+# OS and IDE Specific
+.DS_Store
+.vscode/
+.idea/

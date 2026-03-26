@@ -1,0 +1,16 @@
+# Execution Limits and System Environment Variables
+system:
+  n_threads: 4            # OpenMP threads, limits model CPU spikes
+  ram_limit_gb: 16        # Soft cap before garbage collection triggers
+  
+llm:
+  model_path: "./data/models/DeepSeek-R1-1.5B-Q4_K_M.gguf"
+  n_ctx: 2048             # Context window
+  n_batch: 512            # Processing batch size
+  
+embedding:
+  model_name: "all-MiniLM-L6-v2"  # sentence-transformers base model
+  poincare_dims: 10       # Poincare ball dimensions (hierarchy)
+
+grobid:
+  server_url: "http://localhost:8070/api/processFulltextDocument"

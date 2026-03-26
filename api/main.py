@@ -1,0 +1,99 @@
+import os
+import shutil
+import logging
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+
+from pydantic import BaseModel
+from typing import Dict, Any
+
+from api.state import session_state
+from core.parser import parse_pdf_to_text
+from core.extractor import extract_triples
+from core.embedder import compute_embeddings
+from core.aligner import align_and_filter
+from core.fusion import execute_pushout_fusion
+
+# Initialize logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("API")
+
+app = FastAPI(title="Hyperbolic Knowledge Graph Pushout Engine")
+
+# CORS config
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+os.makedirs("data/uploads", exist_ok=True)
+os.makedirs("data/sessions", exist_ok=True)
+
+class PipelineStatus(BaseModel):
+    status: str
+    message: str
+
+def process_document(file_path: str, filename: str):
+    """Sequential blocking pipeline for processing a single document."""
+    try:
+        logger.info(f"Starting processing for {filename}")
+        
+        # 1. Parse PDF using GROBID
+        markdown_text = parse_pdf_to_text(file_path)
+        
+        # 2. Extract Triples via SLM (llama-cpp-python)
+        json_triples = extract_triples(markdown_text)
+        
+        # 3. Compute Dual Embeddings (SentenceTransformers + Gensim)
+        embedded_nodes = compute_embeddings(json_triples)
+        
+        # 4. Alignment & Equivalence Classification
+        equivalence_mappings = align_and_filter(session_state.G, embedded_nodes)
+        
+        # 5. Categorical Pushout (Fusion)
+        execute_pushout_fusion(session_state.G, embedded_nodes, equivalence_mappings)
+        
+        logger.info(f"Successfully fused {filename} into session graph.")
+    except Exception as e:
+        logger.error(f"Error processing {filename}: {str(e)}")
+    finally:
+        # Cleanup temp file
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        # GC enforcement
+        session_state.enforce_memory_limits()
+
+@app.post("/upload", response_model=PipelineStatus)
+async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """Uploads a PDF and queues it for sequential processing."""
+    file_path = f"data/uploads/{file.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    background_tasks.add_task(process_document, file_path, file.filename)
+    return JSONResponse(status_code=202, content={"status": "queued", "message": f"{file.filename} is being processed."})
+
+@app.get("/graph")
+def get_graph_state() -> Dict[str, Any]:
+    """Returns the serialized JSON of the networkx graph."""
+    return session_state.get_graph_data()
+
+@app.post("/reset")
+def reset_graph():
+    """Resets the continuous session manifold to zero."""
+    session_state.reset()
+    return {"status": "success", "message": "Graph reset."}
+
+# Mount static frontend
+try:
+    if os.path.isdir("frontend/dist"):
+        app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
+    else:
+        logger.info("Serving empty static root, compile frontend using 'npm run build'")
+except Exception as e:
+    logger.error(f"Failed to mount static directory: {e}")
