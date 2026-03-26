@@ -1,6 +1,5 @@
 import Graph from 'graphology';
 import Sigma from 'sigma';
-import EdgeCurveProgram from 'sigma/rendering/webgl/programs/edge.curve';
 
 const container = document.getElementById('sigma-container') as HTMLElement;
 let sigmaInstance: Sigma | null = null;
@@ -14,10 +13,6 @@ const statusEl = document.getElementById('status') as HTMLElement;
 async function initSigma() {
     sigmaInstance = new Sigma(graph, container, {
         allowInvalidContainer: true,
-        defaultEdgeType: 'curve',
-        edgeProgramClasses: {
-            curve: EdgeCurveProgram,
-        },
         labelFont: 'Inter',
         labelWeight: '500',
         labelSize: 12,

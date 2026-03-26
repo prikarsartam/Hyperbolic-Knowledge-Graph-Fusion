@@ -2,38 +2,12 @@
 set -e
 
 echo "=== System Initialization Checks ==="
-
-# 1. Check and download SLM Models (Idempotent: skips if exists)
-bash scripts/fetch_models.sh
-
-# 2. Check and configure GROBID Backend (Idempotent: skips if mapped)
-bash scripts/install_grobid.sh
-
-# 3. Check and install Frontend packages
-if [ ! -d "frontend/node_modules" ]; then
-    echo "Hydrating frontend dependencies..."
-    cd frontend
-    npm install
-    cd ..
-fi
-
-echo "Compiling Vite Frontend..."
-cd frontend
-npm run build
-cd ..
-
-# 4. Check and install Python Subsystem
-if [ ! -d "venv" ]; then
-    echo "Creating isolated Python environment..."
-    python3 -m venv venv
+if [ ! -d "venv" ] || [ ! -d "frontend/node_modules" ]; then
+    echo "Error: Subsystems not initialized. Please run ./install.sh first."
+    exit 1
 fi
 
 source venv/bin/activate
-if [ ! -f "venv/bin/uvicorn" ]; then
-    echo "Installing backend dependencies (this maps PyTorch and execution blocks)..."
-    pip install -r requirements.txt
-    CMAKE_ARGS="-DGGML_CPU=ON" pip install llama-cpp-python
-fi
 
 echo "=== Launching Daemons ==="
 
@@ -44,13 +18,28 @@ pkill -f "grobid" || true
 
 # Boot GROBID
 echo "Starting GROBID server on port 8070..."
-cd "$(dirname "$0")/grobid"
-./gradlew run &
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/grobid"
+./gradlew run --no-daemon &
 GROBID_PID=$!
-cd ..
+cd "$SCRIPT_DIR"
 
-# Delay allowing the massive JVM memory array to hydrate
-sleep 15
+# Poll GROBID /api/isalive until it responds or timeout after 90s
+echo "Waiting for GROBID to become ready (max 90s)..."
+GROBID_READY=0
+for i in $(seq 1 45); do
+    if curl -sf http://localhost:8070/api/isalive > /dev/null 2>&1; then
+        echo "GROBID is ready (${i}x2s elapsed)."
+        GROBID_READY=1
+        break
+    fi
+    sleep 2
+done
+
+if [ "$GROBID_READY" -eq 0 ]; then
+    echo "WARNING: GROBID did not respond within 90 seconds."
+    echo "Proceeding anyway — check http://localhost:8070/api/isalive manually."
+fi
 
 # Boot FastAPI
 echo "Starting FastAPI Backend Server on port 8000..."

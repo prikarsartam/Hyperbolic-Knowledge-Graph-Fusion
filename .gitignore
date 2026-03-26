@@ -6,6 +6,13 @@ frontend/dist/
 venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
 
 # Heavy ML Models and Runtime Data Directories
 data/models/*.gguf
@@ -15,7 +22,28 @@ data/sessions/
 # GROBID Daemon (Source & Binaries are ~350MB+)
 grobid/
 
+# Gradle cache and wrapper (do not commit the downloaded Gradle binaries)
+.gradle/
+build/
+
+# logs
+*.log
+npm-debug.log*
+*.npm
+
+# Python egg / dist artifacts
+*.egg-info/
+dist/
+.eggs/
+
+# Environment variable files (never commit secrets)
+.env
+.env.local
+.env.*.local
+
 # OS and IDE Specific
 .DS_Store
 .vscode/
 .idea/
+*.swp
+*.swo
