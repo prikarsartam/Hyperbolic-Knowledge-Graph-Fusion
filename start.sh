@@ -44,7 +44,7 @@ pkill -f "grobid" || true
 
 # Boot GROBID
 echo "Starting GROBID server on port 8070..."
-cd /home/naturalis/programs/hyperbolic_KG/grobid
+cd "$(dirname "$0")/grobid"
 ./gradlew run &
 GROBID_PID=$!
 cd ..
