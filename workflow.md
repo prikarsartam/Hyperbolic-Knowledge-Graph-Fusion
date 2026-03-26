@@ -1,51 +1,97 @@
 # Hyperbolic KG Pipeline Workflow
 
 ## Full Build Workflow
-1. Initialize a blank Ubuntu environment.
-2. `sudo apt-get update && sudo apt-get install build-essential cmake openjdk-11-jdk wget curl unzip`
-3. Run the complete orchestration script to install and securely launch daemons: `./start.sh`
+
+1. Initialize Ubuntu environment:
+   ```bash
+   sudo apt install -y build-essential cmake openjdk-21-jdk wget curl unzip xxd
+   ```
+2. Fetch and validate LLM: `bash scripts/fetch_models.sh`
+3. Build GROBID (Gradle, uses cached deps on re-run): `bash scripts/install_grobid.sh`
+4. Install frontend packages: `cd frontend && npm install && cd ..`
+5. Launch all services: `./start.sh`
 
 ## Data Flow
-- **Input:** Single byte-stream POST to `/upload` FastAPI.
-- **Parse:** Passed to `localhost:8070` GROBID daemon. Returned as structured XML. Parser isolates `<formula>` logic blocks wrapping them in LaTeX.
-- **Extraction:** Raw Markdown batched into 250 word semantic fragments. Submitted sequentially to a Q4 parameter quantized instance `llama-cpp`. GGUF structure parsed out into `{"subject": "A", "predicate": "B", "object": "C"}` JSON arrays.
-- **Embedding:** Node subjects/objects instantiated. MiniLM model bounds them lexically in Euclidean mappings. Gensim initializes Riemannian Poincare geometry dynamically.
-- **Fusion:** Disjoint-set maps over existing `$G_{session}$` network space matching high similarities (>0.90 cosine) inside bounding Poincare radiuses. Disjoint nodes generated -> equivalences unified by quotient pushout mappings. Shaders blend colors array dynamically.
 
-## Agent Decision Flow
-- **New nodes vs Matched nodes**: If a node aligns strictly via the dual-space aligner, the disjoint union merges them explicitly assigning equivalence. If unique, the semantic hierarchy pushes the Poincare coordinate peripherally.
+- **Input:** PDF file uploaded via browser UI at `http://localhost:8000`.
+  POST to `/upload` queues document for background processing.
+- **Parse:** PDF sent to GROBID daemon at `localhost:8070/api/processFulltextDocument`.
+  Returns TEI XML. Parser extracts `<body>` sections and `<formula>` blocks,
+  wrapping equations in `$$ ... $$` markers.
+- **Extraction:** Markdown batched into 250-word chunks. Each chunk submitted
+  sequentially to DeepSeek-R1-1.5B (Q4_K_M, 4-bit GGUF) via `llama-cpp-python`.
+  LLM extracts `{"subject", "predicate", "object"}` JSON arrays.
+  Model is explicitly `del`-ed and `gc.collect()`-ed after each document.
+- **Embedding:** Subject/object terms encoded by `MiniLM-L6-v2` SentenceTransformer
+  into 384-dim Euclidean vectors. Gensim `PoincareModel` trains on SPO relations
+  in Riemannian hyperbolic space (10 dims). Full 10-dim Poincaré vector stored
+  per node; only dims [0,1] sent to frontend for 2D rendering.
+- **Fusion:** Dual-space aligner scans session graph for equivalences:
+  cosine similarity > 0.90 AND hyperbolic geodesic distance < 0.5.
+  Equivalent nodes merged via categorical pushout: `nx.relabel_nodes` +
+  `nx.compose`. Fused nodes receive blended color arrays.
+- **Rendering:** Frontend polls `/graph` every 3 seconds. Sigma.js renders nodes
+  at Poincaré coordinates scaled to [-100, 100]. Fused nodes (colors.length > 1)
+  render pink at size 15; unique nodes render blue at size 8.
 
-## File Structure & Math Maps
-- Top level category theoretic topology -> `core/fusion.py`
-- Neural Euclidean/Hyperbolic mapping -> `core/embedder.py`
-- Zero-shot linguistic abstraction extraction -> `core/extractor.py`
+## Poincaré Geodesic Distance
 
-## Updating Mechanism
-Any sequential update (`update=True`) invokes Gensim's Riemann SGD algorithm mathematically retaining foundational centroid physics embeddings while allowing new terminology nodes to structure safely radially outwards without breaking existing vectors.
+The aligner uses the true hyperbolic geodesic metric in the Poincaré ball:
 
-## Mathematical Notes
+```
+d_H(x, y) = arccosh(1 + 2‖x−y‖² / ((1−‖x‖²)(1−‖y‖²)))
+```
 
-### Poincaré Geodesic Distance
-The aligner uses the true geodesic distance in the Poincaré ball model:
+This is strictly greater than Euclidean distance for all interior points and
+diverges to infinity near the boundary of the unit disk, correctly encoding
+the exponential growth of hyperbolic space.
 
-$$d_H(x, y) = \cosh^{-1} \left( 1 + \frac{2\|x - y\|^2}{(1 - \|x\|^2)(1 - \|y\|^2)} \right)$$
+## Categorical Pushout
 
-All alignment thresholds are in hyperbolic distance units. The threshold `0.5`
-was empirically calibrated on physics entity pairs.
+The session graph update is a pushout (colimit) over the span:
 
-### Pushout Fusion
-The session graph update implements a categorical pushout (colimit) over the span:
-  G_session ← G_overlap → G_new
-where G_overlap is identified by the dual-space aligner. Equivalent nodes are
-contracted via nx.relabel_nodes followed by nx.compose — the correct graph-
-theoretic implementation of the pushout colimit.
+```
+G_session ← G_overlap → G_new
+```
 
-### Full-Dimensional Poincaré Embeddings
-The Poincaré model trains with poincare_dims=10. All 10 dimensions are stored in
-`poincare_coord` and used by the aligner for geometric proximity filtering.
-Only `poincare_coord_2d = (vec[0], vec[1])` is forwarded to the WebGL frontend.
+where `G_overlap` is identified by the dual-space aligner. This is implemented
+as `nx.relabel_nodes(G_new, equivalence_map)` followed by `nx.compose(G_session, G_new_remapped)`,
+which is the correct graph-theoretic realization of the colimit.
 
-### Thread Safety
-Document processing is serialized by _pipeline_lock (threading.Lock). Concurrent
-uploads are accepted by FastAPI but processed strictly sequentially to protect
-the mutable session graph singleton.
+## Thread Safety
+
+All document processing is serialized by `_pipeline_lock` (threading.Lock) in
+`api/main.py`. Concurrent uploads are accepted by FastAPI but processed strictly
+one at a time to prevent concurrent mutation of the session graph singleton.
+
+## RAM Budget (16GB system)
+
+| Component | Peak RAM |
+|---|---|
+| Ubuntu OS + misc | ~1.5 GB |
+| GROBID JVM | ~3–4 GB |
+| SentenceTransformer (MiniLM) | ~0.3 GB |
+| DeepSeek-R1-1.5B Q4_K_M (n_ctx=1024) | ~1.2 GB |
+| Gensim PoincareModel | ~0.2 GB |
+| NetworkX session graph | ~0.1–0.5 GB |
+| **Total peak** | **~7–10 GB** |
+
+The `ram_limit_gb: 12` soft cap in `settings.yaml` triggers GC before the system
+hits actual OOM. The LLM is never resident simultaneously with GROBID XML parsing —
+the pipeline is strictly sequential per document.
+
+## File Structure
+
+| Path | Responsibility |
+|---|---|
+| `core/parser.py` | GROBID HTTP client, TEI XML → Markdown |
+| `core/extractor.py` | llama-cpp-python SPO triple extraction |
+| `core/embedder.py` | MiniLM + Poincaré dual-space embedding |
+| `core/aligner.py` | Hyperbolic geodesic dual-space entity alignment |
+| `core/fusion.py` | Categorical pushout graph fusion |
+| `api/main.py` | FastAPI server, background task queue, thread lock |
+| `api/state.py` | Singleton session graph + RAM monitor |
+| `configs/settings.yaml` | All runtime parameters (n_ctx, n_threads, paths) |
+| `scripts/fetch_models.sh` | GGUF download + magic byte validation |
+| `scripts/install_grobid.sh` | GROBID clone + Gradle build (idempotent) |
+| `start.sh` | Full system orchestrator |
