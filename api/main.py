@@ -1,6 +1,7 @@
 import os
 import shutil
 import logging
+import re
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -66,12 +67,19 @@ def process_document(file_path: str, filename: str):
 @app.post("/upload", response_model=PipelineStatus)
 async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     """Uploads a PDF and queues it for sequential processing."""
-    file_path = f"data/uploads/{file.filename}"
+    # Sanitize filename: replace spaces with underscores, strip colons and
+    # other shell-unsafe characters, keep alphanumerics, dots, dashes, underscores
+    safe_name = re.sub(r'[^\w\-.]', '_', file.filename.replace(' ', '_'))
+    file_path = f"data/uploads/{safe_name}"
+
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-        
+
     background_tasks.add_task(process_document, file_path, file.filename)
-    return JSONResponse(status_code=202, content={"status": "queued", "message": f"{file.filename} is being processed."})
+    return JSONResponse(
+        status_code=202,
+        content={"status": "queued", "message": f"{file.filename} is being processed."}
+    )
 
 @app.get("/graph")
 def get_graph_state() -> Dict[str, Any]:
