@@ -51,12 +51,21 @@ def process_document(file_path: str, filename: str):
     with _pipeline_lock:
         try:
             logger.info(f"Starting processing for {filename}")
-            markdown_text       = parse_pdf_to_text(file_path)
-            json_triples        = extract_triples(markdown_text)
-            embedded_nodes      = compute_embeddings(json_triples)
-            equivalence_mappings = align_and_filter(session_state.G, embedded_nodes)
-            execute_pushout_fusion(session_state.G, embedded_nodes, equivalence_mappings)
-            logger.info(f"Successfully fused {filename} into session graph.")
+            
+            markdown_text = parse_pdf_to_text(file_path)
+            
+            # Incremental pushout updates (Streaming)
+            from core.extractor import extract_triples_stream
+            for chunk_triples in extract_triples_stream(markdown_text):
+                if not chunk_triples:
+                    continue
+                embedded_nodes = compute_embeddings(chunk_triples)
+                if not embedded_nodes:
+                    continue
+                alignments = align_and_filter(session_state.G, embedded_nodes)
+                execute_pushout_fusion(session_state.G, embedded_nodes, alignments)
+                
+            logger.info("Graph processing fully completed.")
         except Exception as e:
             logger.error(f"Error processing {filename}: {str(e)}", exc_info=True)
         finally:

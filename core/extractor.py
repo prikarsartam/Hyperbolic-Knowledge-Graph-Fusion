@@ -4,7 +4,7 @@ import gc
 import yaml
 import os
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Iterator
 from llama_cpp import Llama
 
 logger = logging.getLogger("Extractor")
@@ -63,8 +63,8 @@ def _extract_json_triples(raw: str) -> List[Dict[str, str]]:
             continue
     return triples
 
-def extract_triples(markdown_text: str) -> List[Dict[str, str]]:
-    """Loads SLM, extracts SPO JSON triples, then aggressively unloads SLM."""
+def extract_triples_stream(markdown_text: str) -> Iterator[List[Dict[str, str]]]:
+    """Extracts a list of subject/predicate/object structures using DeepSeek JSON generation iteratively."""
     model_path = get_config("llm.model_path", "./data/models/DeepSeek-R1-1.5B-Q4_K_M.gguf")
     n_ctx      = get_config("llm.n_ctx", 1024)
     n_threads  = get_config("system.n_threads", 4)
@@ -72,7 +72,15 @@ def extract_triples(markdown_text: str) -> List[Dict[str, str]]:
 
     if not os.path.exists(model_path):
         logger.warning(f"Model file {model_path} not found. Returning mock data.")
-        return [{"subject": "Model", "predicate": "is", "object": "missing"}]
+        yield [{"subject": "Model", "predicate": "is", "object": "missing"}]
+        return
+
+    # 120 words ≈ 160 tokens. Prompt template ≈ 80 tokens. Total ≈ 240 tokens.
+    # max_tokens=400 leaves ample room within n_ctx=1024.
+    chunks = chunk_text(markdown_text, chunk_size=120)
+    if not chunks:
+        logger.warning("Empty text passed for extraction.")
+        return
 
     logger.info(f"Loading LLM {model_path} into memory for extraction.")
     llm = Llama(
@@ -82,11 +90,6 @@ def extract_triples(markdown_text: str) -> List[Dict[str, str]]:
         n_threads=n_threads,
         verbose=False,
     )
-
-    # 120 words ≈ 160 tokens. Prompt template ≈ 80 tokens. Total ≈ 240 tokens.
-    # max_tokens=400 leaves ample room within n_ctx=1024.
-    chunks = chunk_text(markdown_text, chunk_size=120)
-    all_triples = []
 
     prompt_template = (
         "Extract subject-predicate-object triples from the physics text below.\n"
@@ -99,7 +102,7 @@ def extract_triples(markdown_text: str) -> List[Dict[str, str]]:
     for idx, chunk in enumerate(chunks):
         logger.info(f"Processing chunk {idx + 1}/{len(chunks)}")
         prompt = prompt_template.format(text=chunk)
-
+        
         try:
             response = llm(
                 prompt,
@@ -112,14 +115,14 @@ def extract_triples(markdown_text: str) -> List[Dict[str, str]]:
             triples = _extract_json_triples(raw_output)
             if triples:
                 logger.info(f"  Chunk {idx + 1}: extracted {len(triples)} triples.")
-                all_triples.extend(triples)
             else:
                 logger.warning(f"  Chunk {idx + 1}: no valid triples parsed. Raw: {raw_output[:120]}")
+                
+            yield triples
         except Exception as e:
             logger.warning(f"  Chunk {idx + 1}: inference failed: {e}")
+            yield []
 
-    logger.info(f"Extraction complete. Total triples: {len(all_triples)}. Unloading LLM.")
+    logger.info("Extraction stream complete. Unloading LLM.")
     del llm
     gc.collect()
-
-    return all_triples
