@@ -62,7 +62,7 @@ def test_fusion_empty_session_populates_graph():
 
 def test_fusion_merges_equivalent_nodes():
     G = nx.DiGraph()
-    G.add_node("Hamiltonian", **make_node("Hamiltonian"), colors=[1])
+    G.add_node("Hamiltonian", **make_node("Hamiltonian"))
     new_nodes = {"H_op": make_node("H_op")}
     new_nodes["H_op"]["colors"] = [2]
     execute_pushout_fusion(G, new_nodes, [("H_op", "Hamiltonian")])

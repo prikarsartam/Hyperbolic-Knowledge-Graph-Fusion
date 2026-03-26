@@ -13,7 +13,8 @@ def parse_pdf_to_text(pdf_path: str) -> str:
     with open(pdf_path, 'rb') as f:
         files = {'input': (os.path.basename(pdf_path), f, 'application/pdf')}
         data  = {'consolidateHeader': '0'}
-        response = requests.post(grobid_url, files=files, data=data, timeout=120)
+        # GROBID requires substantial CPU time for dense, multi-column scientific PDFs on a 16GB machine.
+        response = requests.post(grobid_url, files=files, data=data, timeout=1200)
 
     if response.status_code != 200:
         raise RuntimeError(f"GROBID parsing failed: {response.status_code} - {response.text}")

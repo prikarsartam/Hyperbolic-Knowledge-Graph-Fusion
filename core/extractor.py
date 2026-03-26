@@ -91,7 +91,7 @@ def extract_triples(markdown_text: str) -> List[Dict[str, str]]:
     prompt_template = (
         "Extract subject-predicate-object triples from the physics text below.\n"
         "Output ONLY a JSON array. No explanation. No markdown.\n"
-        "Format: [{{\"subject\": \"...\", \"predicate\": \"...\", \"object\": \"...\"}}]\n"
+        "Example: [{{\"subject\": \"Electron\", \"predicate\": \"has\", \"object\": \"mass\"}}]\n"
         "Text: {text}\n"
         "JSON:"
     )
@@ -108,7 +108,7 @@ def extract_triples(markdown_text: str) -> List[Dict[str, str]]:
                 echo=False,
                 temperature=0.0,   # Greedy — maximally deterministic JSON output
             )
-            raw_output = response['choices']['text'].strip()
+            raw_output = response['choices'][0]['text'].strip()
             triples = _extract_json_triples(raw_output)
             if triples:
                 logger.info(f"  Chunk {idx + 1}: extracted {len(triples)} triples.")

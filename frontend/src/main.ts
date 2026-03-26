@@ -25,7 +25,7 @@ async function initSigma() {
 
 async function fetchGraph() {
     try {
-        const response = await fetch('http://localhost:8000/graph');
+        const response = await fetch('/graph');
         const data = await response.json();
         
         graph.clear();
@@ -81,7 +81,7 @@ uploadBtn?.addEventListener('click', async () => {
     
     statusEl.innerText = `Upload started: ${file.name}`;
     try {
-        const response = await fetch('http://localhost:8000/upload', {
+        const response = await fetch('/upload', {
             method: 'POST',
             body: formData
         });
