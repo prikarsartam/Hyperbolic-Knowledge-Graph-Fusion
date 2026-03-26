@@ -13,7 +13,7 @@ import threading
 
 from api.state import session_state
 from core.parser import parse_pdf_to_text
-from core.extractor import extract_triples
+# Removing isolated deprecated extractor import
 from core.embedder import compute_embeddings
 from core.aligner import align_and_filter
 from core.fusion import execute_pushout_fusion
