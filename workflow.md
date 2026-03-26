@@ -29,7 +29,9 @@ Any sequential update (`update=True`) invokes Gensim's Riemann SGD algorithm mat
 ### Poincaré Geodesic Distance
 The aligner uses the true geodesic distance in the Poincaré ball model:
 
-d_H(x, y) = arccosh(1 + 2‖x−y‖² / ((1−‖x‖²)(1−‖y‖²)))
+$$
+d_H(x, y) = \operatorname{arccosh}\!\left( 1 + \frac{2\|x - y\|^2}{(1 - \|x\|^2)(1 - \|y\|^2)} \right)
+$$
 
 All alignment thresholds are in hyperbolic distance units. The threshold `0.5`
 was empirically calibrated on physics entity pairs.
