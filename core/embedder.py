@@ -50,18 +50,19 @@ def compute_embeddings(triples: List[Dict[str, str]]) -> Dict[str, Dict[str, Any
     lexical_vectors  = st_model.encode(unique_nodes, convert_to_numpy=True)
     lexical_map      = {node: vec for node, vec in zip(unique_nodes, lexical_vectors)}
 
-    # Poincaré hyperbolic embeddings — only train if we have valid relations
-    if relations:
+    # Poincaré hyperbolic embeddings — only train if we have valid non-trivial relations
+    if relations and len(unique_nodes) > 2:
+        num_negative = min(2, len(unique_nodes) - 1)
         if session_state.poincare_model is None:
-            logger.info(f"Initializing new PoincareModel ({poincare_dims} dims, {len(relations)} relations).")
-            session_state.poincare_model = PoincareModel(relations, size=poincare_dims, negative=2)
+            logger.info(f"Initializing new PoincareModel ({poincare_dims} dims, {len(relations)} relations, neg={num_negative}).")
+            session_state.poincare_model = PoincareModel(relations, size=poincare_dims, negative=num_negative)
             session_state.poincare_model.train(epochs=50)
         else:
             logger.info(f"Updating PoincareModel with {len(relations)} new relations.")
             session_state.poincare_model.build_vocab(relations, update=True)
             session_state.poincare_model.train(epochs=50)
     else:
-        logger.warning("No valid (subj, obj) pairs — Poincaré model not trained.")
+        logger.warning(f"Extracted a trivial graph of {len(unique_nodes)} nodes — Poincaré model not trained this batch.")
 
     # Build output map
     embedded_nodes = {}

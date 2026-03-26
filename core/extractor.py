@@ -63,26 +63,30 @@ def _extract_json_triples(raw: str) -> List[Dict[str, str]]:
             continue
     return triples
 
-def extract_triples_stream(markdown_text: str) -> Iterator[List[Dict[str, str]]]:
+def extract_triples_stream(markdown_text: str) -> Iterator[Dict[str, Any]]:
     """Extracts a list of subject/predicate/object structures using DeepSeek JSON generation iteratively."""
     model_path = get_config("llm.model_path", "./data/models/DeepSeek-R1-1.5B-Q4_K_M.gguf")
     n_ctx      = get_config("llm.n_ctx", 1024)
-    n_threads  = get_config("system.n_threads", 4)
+    import multiprocessing
+    # Auto-detect optimal CPU cores, preserving system max
+    detected_cores = max(1, multiprocessing.cpu_count() - 1)
+    n_threads  = get_config("system.n_threads", detected_cores)
     n_batch    = get_config("llm.n_batch", 256)
 
     if not os.path.exists(model_path):
         logger.warning(f"Model file {model_path} not found. Returning mock data.")
-        yield [{"subject": "Model", "predicate": "is", "object": "missing"}]
+        yield {"triples": [{"subject": "Model", "predicate": "is", "object": "missing"}], "current_chunk": 1, "total_chunks": 1}
         return
 
     # 120 words ≈ 160 tokens. Prompt template ≈ 80 tokens. Total ≈ 240 tokens.
     # max_tokens=400 leaves ample room within n_ctx=1024.
     chunks = chunk_text(markdown_text, chunk_size=120)
+    total_len = len(chunks)
     if not chunks:
         logger.warning("Empty text passed for extraction.")
         return
 
-    logger.info(f"Loading LLM {model_path} into memory for extraction.")
+    logger.info(f"Loading LLM {model_path} into memory for extraction with {n_threads} threads.")
     llm = Llama(
         model_path=model_path,
         n_ctx=n_ctx,
@@ -100,7 +104,7 @@ def extract_triples_stream(markdown_text: str) -> Iterator[List[Dict[str, str]]]
     )
 
     for idx, chunk in enumerate(chunks):
-        logger.info(f"Processing chunk {idx + 1}/{len(chunks)}")
+        logger.info(f"Processing chunk {idx + 1}/{total_len}")
         prompt = prompt_template.format(text=chunk)
         
         try:
@@ -118,10 +122,10 @@ def extract_triples_stream(markdown_text: str) -> Iterator[List[Dict[str, str]]]
             else:
                 logger.warning(f"  Chunk {idx + 1}: no valid triples parsed. Raw: {raw_output[:120]}")
                 
-            yield triples
+            yield {"triples": triples, "current_chunk": idx + 1, "total_chunks": total_len}
         except Exception as e:
             logger.warning(f"  Chunk {idx + 1}: inference failed: {e}")
-            yield []
+            yield {"triples": [], "current_chunk": idx + 1, "total_chunks": total_len}
 
     logger.info("Extraction stream complete. Unloading LLM.")
     del llm

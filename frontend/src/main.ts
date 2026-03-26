@@ -70,6 +70,11 @@ async function fetchGraph() {
 const uploadBtn = document.getElementById('upload-btn');
 const fileInput = document.getElementById('file-upload') as HTMLInputElement;
 
+// Progress DOM
+const progressContainer = document.getElementById('progress-container') as HTMLElement;
+const progressBar = document.getElementById('progress-bar') as HTMLElement;
+const progressText = document.getElementById('progress-text') as HTMLElement;
+
 uploadBtn?.addEventListener('click', async () => {
     if (!fileInput.files || fileInput.files.length === 0) {
         alert("Please select a file first.");
@@ -87,7 +92,6 @@ uploadBtn?.addEventListener('click', async () => {
         });
         
         if (response.ok) {
-            statusEl.innerText = `File queued: ${file.name}. Polling for Pushout.`;
             startPolling();
         } else {
             statusEl.innerText = "Server rejected upload.";
@@ -99,11 +103,47 @@ uploadBtn?.addEventListener('click', async () => {
 
 function startPolling() {
     if (pollingTimer) clearInterval(pollingTimer);
+    
+    // Reset visuals
+    progressContainer.style.display = 'block';
+    progressText.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressBar.style.backgroundColor = '#ec4899';
+    progressText.innerText = '0%';
+    
     pollingTimer = setInterval(async () => {
         await fetchGraph();
-        // If we notice new nodes or it's been active for 30 seconds we can stop, or just keep polling.
-        // For simplicity, we just keep polling in this localized asynchronous client
+        await fetchStatus();
     }, pollingInterval);
+}
+
+async function fetchStatus() {
+    try {
+        const response = await fetch('/status');
+        const data = await response.json();
+        
+        if (data.is_processing) {
+            statusEl.innerText = `${data.step} (${data.filename})`;
+            if (data.total_chunks > 0) {
+                const perc = Math.round((data.current_chunk / data.total_chunks) * 100);
+                progressBar.style.width = `${perc}%`;
+                progressBar.style.backgroundColor = '#3b82f6'; // Switch to blue processing
+                progressText.innerText = `${data.current_chunk} / ${data.total_chunks} chunks [${perc}%]`;
+            }
+        } else {
+            if (data.step === "Complete") {
+                statusEl.innerText = `Idle: Pushed ${data.filename}.`;
+                progressBar.style.width = '100%';
+                progressBar.style.backgroundColor = '#10b981'; // Switch to green success
+                progressText.innerText = '100% (Complete)';
+            } else if (data.step && data.step.startsWith("Error")) {
+                statusEl.innerText = `System Failed: ${data.step}`;
+                progressBar.style.backgroundColor = '#ef4444'; // Red fail
+            }
+        }
+    } catch(e) {
+        console.error("Fetch status failed:", e);
+    }
 }
 
 // Boot

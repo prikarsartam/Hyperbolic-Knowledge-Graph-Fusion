@@ -46,32 +46,61 @@ class PipelineStatus(BaseModel):
     status: str
     message: str
 
+# Global transient status for the UI progress bar
+task_status = {
+    "is_processing": False,
+    "filename": "",
+    "step": "",
+    "current_chunk": 0,
+    "total_chunks": 0
+}
+
+@app.get("/status")
+def get_status():
+    """Proxy for UI component tracking the streaming generator's progress."""
+    return task_status
+
 def process_document(file_path: str, filename: str):
-    """Sequential blocking pipeline. Lock ensures no concurrent graph corruption."""
     with _pipeline_lock:
         try:
+            task_status["is_processing"] = True
+            task_status["filename"] = filename
+            task_status["step"] = "Parsing PDF structure in GROBID..."
+            task_status["current_chunk"] = 0
+            task_status["total_chunks"] = 0
+            
             logger.info(f"Starting processing for {filename}")
             
             markdown_text = parse_pdf_to_text(file_path)
             
+            task_status["step"] = "Extracting & embedding triples..."
             # Incremental pushout updates (Streaming)
             from core.extractor import extract_triples_stream
-            for chunk_triples in extract_triples_stream(markdown_text):
+            for payload in extract_triples_stream(markdown_text):
+                task_status["current_chunk"] = payload.get("current_chunk", 0)
+                task_status["total_chunks"] = payload.get("total_chunks", 0)
+                
+                chunk_triples = payload.get("triples", [])
                 if not chunk_triples:
                     continue
+                
                 embedded_nodes = compute_embeddings(chunk_triples)
                 if not embedded_nodes:
                     continue
+                
                 alignments = align_and_filter(session_state.G, embedded_nodes)
                 execute_pushout_fusion(session_state.G, embedded_nodes, alignments)
                 
+            task_status["step"] = "Complete"
             logger.info("Graph processing fully completed.")
         except Exception as e:
+            task_status["step"] = f"Error: {str(e)}"
             logger.error(f"Error processing {filename}: {str(e)}", exc_info=True)
         finally:
             if os.path.exists(file_path):
                 os.remove(file_path)
             session_state.enforce_memory_limits()
+            task_status["is_processing"] = False
 
 @app.post("/upload", response_model=PipelineStatus)
 async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
