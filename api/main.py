@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
 from typing import Dict, Any
+import threading
 
 from api.state import session_state
 from core.parser import parse_pdf_to_text
@@ -21,11 +22,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("API")
 
 app = FastAPI(title="Hyperbolic Knowledge Graph Pushout Engine")
+_pipeline_lock = threading.Lock()
 
 # CORS config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,34 +46,22 @@ class PipelineStatus(BaseModel):
     message: str
 
 def process_document(file_path: str, filename: str):
-    """Sequential blocking pipeline for processing a single document."""
-    try:
-        logger.info(f"Starting processing for {filename}")
-        
-        # 1. Parse PDF using GROBID
-        markdown_text = parse_pdf_to_text(file_path)
-        
-        # 2. Extract Triples via SLM (llama-cpp-python)
-        json_triples = extract_triples(markdown_text)
-        
-        # 3. Compute Dual Embeddings (SentenceTransformers + Gensim)
-        embedded_nodes = compute_embeddings(json_triples)
-        
-        # 4. Alignment & Equivalence Classification
-        equivalence_mappings = align_and_filter(session_state.G, embedded_nodes)
-        
-        # 5. Categorical Pushout (Fusion)
-        execute_pushout_fusion(session_state.G, embedded_nodes, equivalence_mappings)
-        
-        logger.info(f"Successfully fused {filename} into session graph.")
-    except Exception as e:
-        logger.error(f"Error processing {filename}: {str(e)}")
-    finally:
-        # Cleanup temp file
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        # GC enforcement
-        session_state.enforce_memory_limits()
+    """Sequential blocking pipeline. Lock ensures no concurrent graph corruption."""
+    with _pipeline_lock:
+        try:
+            logger.info(f"Starting processing for {filename}")
+            markdown_text       = parse_pdf_to_text(file_path)
+            json_triples        = extract_triples(markdown_text)
+            embedded_nodes      = compute_embeddings(json_triples)
+            equivalence_mappings = align_and_filter(session_state.G, embedded_nodes)
+            execute_pushout_fusion(session_state.G, embedded_nodes, equivalence_mappings)
+            logger.info(f"Successfully fused {filename} into session graph.")
+        except Exception as e:
+            logger.error(f"Error processing {filename}: {str(e)}", exc_info=True)
+        finally:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            session_state.enforce_memory_limits()
 
 @app.post("/upload", response_model=PipelineStatus)
 async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):

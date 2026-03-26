@@ -1,5 +1,6 @@
 import logging
 from typing import List, Dict, Any, Tuple
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from gensim.models.poincare import PoincareModel
 from api.state import session_state
@@ -7,8 +8,8 @@ from core.extractor import get_config
 
 logger = logging.getLogger("Embedder")
 
-model_name = get_config("model_name", "all-MiniLM-L6-v2")
-poincare_dims = get_config("poincare_dims", 10)
+model_name = get_config("embedding.model_name", "all-MiniLM-L6-v2")
+poincare_dims = get_config("embedding.poincare_dims", 10)
 
 _st_model = None
 def get_st_model():
@@ -59,14 +60,14 @@ def compute_embeddings(triples: List[Dict[str, str]]) -> Dict[str, Dict[str, Any
     # 4. Construct Output Map
     embedded_nodes = {}
     for node in unique_nodes:
-        x, y = 0.0, 0.0
+        poincare_vec = np.zeros(poincare_dims, dtype=np.float32)
         if node in session_state.poincare_model.kv.key_to_index:
-            p_vec = session_state.poincare_model.kv[node]
-            x, y = float(p_vec[0]), float(p_vec[1])
-            
+            poincare_vec = np.array(session_state.poincare_model.kv[node], dtype=np.float32)
+
         embedded_nodes[node] = {
             "lexical_embedding": lexical_map[node],
-            "poincare_coord": (x, y),
+            "poincare_coord": poincare_vec,                                  # Full N-dim vector for aligner
+            "poincare_coord_2d": (float(poincare_vec[0]), float(poincare_vec[1])),  # For WebGL frontend only
             "label": node,
             "triples": node_triples_map.get(node, [])
         }

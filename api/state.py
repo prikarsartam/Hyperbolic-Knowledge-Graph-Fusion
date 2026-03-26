@@ -4,6 +4,7 @@ import psutil
 import logging
 from gensim.models.poincare import PoincareModel
 from typing import Optional
+import numpy as np
 
 logger = logging.getLogger("StateLogger")
 
@@ -28,8 +29,14 @@ class GraphState:
             gc.collect()
             
     def get_graph_data(self):
-        """Serialize the continuous NetworkX Graph into a generic JSON struct for Sigma.js."""
+        """Serialize the NetworkX graph to a JSON-safe dict for the frontend."""
         data = nx.node_link_data(self.G)
+        for node in data.get("nodes", []):
+            for key, val in node.items():
+                if isinstance(val, np.ndarray):
+                    node[key] = val.tolist()
+                elif isinstance(val, (np.float32, np.float64, np.int32, np.int64)):
+                    node[key] = val.item()
         return data
 
 # Singleton State instance

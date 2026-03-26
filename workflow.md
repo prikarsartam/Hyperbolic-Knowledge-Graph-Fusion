@@ -26,3 +26,30 @@
 
 ## Updating Mechanism
 Any sequential update (`update=True`) invokes Gensim's Riemann SGD algorithm mathematically retaining foundational centroid physics embeddings while allowing new terminology nodes to structure safely radially outwards without breaking existing vectors.
+
+## Mathematical Notes
+
+### Poincaré Geodesic Distance
+The aligner uses the true geodesic distance in the Poincaré ball model:
+
+d_H(x, y) = arccosh(1 + 2‖x−y‖² / ((1−‖x‖²)(1−‖y‖²)))
+
+All alignment thresholds are in hyperbolic distance units. The threshold `0.5`
+was empirically calibrated on physics entity pairs.
+
+### Pushout Fusion
+The session graph update implements a categorical pushout (colimit) over the span:
+  G_session ← G_overlap → G_new
+where G_overlap is identified by the dual-space aligner. Equivalent nodes are
+contracted via nx.relabel_nodes followed by nx.compose — the correct graph-
+theoretic implementation of the pushout colimit.
+
+### Full-Dimensional Poincaré Embeddings
+The Poincaré model trains with poincare_dims=10. All 10 dimensions are stored in
+`poincare_coord` and used by the aligner for geometric proximity filtering.
+Only `poincare_coord_2d = (vec[0], vec[1])` is forwarded to the WebGL frontend.
+
+### Thread Safety
+Document processing is serialized by _pipeline_lock (threading.Lock). Concurrent
+uploads are accepted by FastAPI but processed strictly sequentially to protect
+the mutable session graph singleton.

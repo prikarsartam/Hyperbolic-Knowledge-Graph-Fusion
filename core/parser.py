@@ -2,18 +2,18 @@ import os
 import requests
 import xml.etree.ElementTree as ET
 import logging
+from core.extractor import get_config
 
 logger = logging.getLogger("Parser")
 
-GROBID_URL = "http://localhost:8070/api/processFulltextDocument"
-
 def parse_pdf_to_text(pdf_path: str) -> str:
     """Sends a PDF to a local GROBID server and extracts text/formulas."""
-    logger.info(f"Sending {pdf_path} to GROBID at {GROBID_URL}")
+    grobid_url = get_config("grobid.server_url", "http://localhost:8070/api/processFulltextDocument")
+    logger.info(f"Sending {pdf_path} to GROBID at {grobid_url}")
     with open(pdf_path, 'rb') as f:
         files = {'input': (os.path.basename(pdf_path), f, 'application/pdf')}
-        data = {'consolidateHeader': '0'}
-        response = requests.post(GROBID_URL, files=files, data=data)
+        data  = {'consolidateHeader': '0'}
+        response = requests.post(grobid_url, files=files, data=data, timeout=120)
 
     if response.status_code != 200:
         raise RuntimeError(f"GROBID parsing failed: {response.status_code} - {response.text}")

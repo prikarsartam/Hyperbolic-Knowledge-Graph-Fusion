@@ -1,22 +1,23 @@
 import json
 import logging
 import gc
+import yaml
+import os
 from typing import List, Dict, Any
 from llama_cpp import Llama
-import os
 
 logger = logging.getLogger("Extractor")
 
 def get_config(key: str, default: Any) -> Any:
-    """Simple text parsing of settings.yaml since pyyaml is omitted."""
+    """Load a nested value from settings.yaml using dot-notation key."""
     try:
         with open("configs/settings.yaml", "r") as f:
-            for line in f:
-                if f"{key}:" in line:
-                    val = line.split(":", 1)[1].split("#")[0].strip()
-                    if val.isdigit(): return int(val)
-                    if val.startswith('"') or val.startswith('\''): return val[1:-1]
-                    return val
+            config = yaml.safe_load(f)
+        keys = key.split(".")
+        val = config
+        for k in keys:
+            val = val[k]
+        return val
     except Exception:
         pass
     return default
@@ -30,9 +31,9 @@ def chunk_text(text: str, chunk_size: int = 150) -> List[str]:
 
 def extract_triples(markdown_text: str) -> List[Dict[str, str]]:
     """Loads SLM, extracts SPO JSON triples, then aggressively unloads SLM."""
-    model_path = get_config("model_path", "./data/models/DeepSeek-R1-1.5B-Q4_K_M.gguf")
-    n_ctx = get_config("n_ctx", 2048)
-    n_threads = get_config("n_threads", 4)
+    model_path = get_config("llm.model_path", "./data/models/DeepSeek-R1-1.5B-Q4_K_M.gguf")
+    n_ctx = get_config("llm.n_ctx", 2048)
+    n_threads = get_config("system.n_threads", 4)
     
     if not os.path.exists(model_path):
         logger.warning(f"Model file {model_path} not found. Returning mock data.")
