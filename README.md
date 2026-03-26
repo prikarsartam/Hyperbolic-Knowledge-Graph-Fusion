@@ -17,9 +17,9 @@ The pipeline consists of four localized stages executing sequentially:
 
 ## Installation Instructions
 
-1. Run the unified installation orchestrator to initialize models, grobid daemon, frontend dependencies, and the python virtual environment:
+1. Run the unified orchestrator to initialize and execute models, grobid daemon, frontend dependencies, and the python virtual environment:
    ```bash
-   ./install.sh
+   ./start.sh
    ```
 2. Check `configs/settings.yaml` to modulate memory. Default runs 4 CPU Threads and hard-caps execution at an empirically tested threshold of 12-16GB.
 

@@ -3,8 +3,7 @@
 ## Full Build Workflow
 1. Initialize a blank Ubuntu environment.
 2. `sudo apt-get update && sudo apt-get install build-essential cmake openjdk-11-jdk wget curl unzip`
-3. Run the installation script: `./install.sh`
-4. Start daemons: `./start.sh`
+3. Run the complete orchestration script to install and securely launch daemons: `./start.sh`
 
 ## Data Flow
 - **Input:** Single byte-stream POST to `/upload` FastAPI.
