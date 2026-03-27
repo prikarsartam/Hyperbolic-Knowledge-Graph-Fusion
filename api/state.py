@@ -33,6 +33,7 @@ class GraphState:
         Strips lexical_embedding (384-dim, not used by frontend).
         Converts all numpy types to native Python types.
         """
+        import math
         nodes: List[Dict[str, Any]] = []
         for node_id, data in self.G.nodes(data=True):
             # poincare_coord_2d is what the frontend uses for x/y position
@@ -43,6 +44,10 @@ class GraphState:
                 coord_2d = (float(coord_2d[0]), float(coord_2d[1]))
             else:
                 coord_2d = (0.0, 0.0)
+
+            # Prevent Riemannian gradient explosion payloads from crashing Web browsers dynamically
+            if math.isnan(coord_2d[0]) or math.isnan(coord_2d[1]) or math.isinf(coord_2d[0]) or math.isinf(coord_2d[1]):
+                coord_2d = (np.random.uniform(-0.05, 0.05), np.random.uniform(-0.05, 0.05))
 
             colors = data.get("colors", [1])
             if not isinstance(colors, list):

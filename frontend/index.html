@@ -1,32 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hyperbolic Context Graph</title>
-    <style>
-      body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #0f111a; font-family: 'Inter', sans-serif; color: white;}
-      #sigma-container { width: 100%; height: 100%; position: absolute; z-index: 1;}
-      #ui-panel { position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(20, 24, 36, 0.85); backdrop-filter: blur(10px); padding: 20px; border-radius: 12px; border: 1px solid #333; max-width: 300px; }
-      h1 { font-size: 1.2rem; margin-top: 0; background: -webkit-linear-gradient(#f00, #ff0); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-      .btn { display: inline-block; padding: 10px 15px; margin-top: 10px; background-color: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; transition: 0.3s; }
-      .btn:hover { background-color: #2563eb; }
-      #status { font-size: 0.85rem; color: #aaa; margin-top: 10px; }
-    </style>
-  </head>
-  <body>
-    <div id="ui-panel">
-      <h1>UMD Hyperbolic Extractor</h1>
-      <p style="font-size:0.9rem;">Upload structural PDF documents to compute the pushout onto the current contextual manifold.</p>
-      <input type="file" id="file-upload" accept="application/pdf" style="margin-top: 10px;" />
-      <button class="btn" id="upload-btn">Ingest & Pushout</button>
-      <div id="status">Status: Idle</div>
-      <div id="progress-container" style="display:none; width: 100%; background-color: #333; height: 8px; border-radius: 4px; margin-top: 15px; overflow: hidden;">
-        <div id="progress-bar" style="width: 0%; height: 100%; background-color: #ec4899; transition: width 0.4s ease, background-color 0.4s ease;"></div>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hyperbolic Context Graph</title>
+  <style>
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0f111a;
+      font-family: 'Inter', sans-serif;
+      color: white;
+    }
+
+    #sigma-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      z-index: 1;
+    }
+
+    #ui-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: rgba(20, 24, 36, 0.85);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      max-width: 300px;
+    }
+
+    h1 {
+      font-size: 1.2rem;
+      margin-top: 0;
+      background: -webkit-linear-gradient(#f00, #ff0);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 10px 15px;
+      margin-top: 10px;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .btn:hover {
+      background-color: #2563eb;
+    }
+
+    #status {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="ui-panel">
+    <h1>Hyperbolic Knowledge Graph Fusion</h1>
+    <p style="font-size:0.9rem;">Upload structural PDF documents to compute the pushout onto the current contextual
+      manifold.</p>
+    <input type="file" id="file-upload" accept="application/pdf" style="margin-top: 10px;" />
+    <button class="btn" id="upload-btn">Ingest & Pushout</button>
+    <div id="status">Status: Idle</div>
+    <div id="progress-container"
+      style="display:none; width: 100%; background-color: #333; height: 8px; border-radius: 4px; margin-top: 15px; overflow: hidden;">
+      <div id="progress-bar"
+        style="width: 0%; height: 100%; background-color: #ec4899; transition: width 0.4s ease, background-color 0.4s ease;">
       </div>
-      <div id="progress-text" style="display:none; font-size: 0.75rem; color: #888; margin-top: 5px; text-align: right;">0%</div>
     </div>
-    <div id="sigma-container"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+    <div id="progress-text" style="display:none; font-size: 0.75rem; color: #888; margin-top: 5px; text-align: right;">
+      0%</div>
+  </div>
+  <div id="sigma-container"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
 </html>
