@@ -7,6 +7,8 @@ let graph = new Graph();
 
 const pollingInterval = 3000;
 let pollingTimer: NodeJS.Timeout | null = null;
+let pipelineComplete = false;
+
 const statusEl = document.getElementById('status') as HTMLElement;
 
 // Main initializer
@@ -18,7 +20,7 @@ async function initSigma() {
         labelSize: 12,
         labelColor: { color: '#ffffff' }
     });
-    
+
     // Initial fetch
     await fetchGraph();
 }
@@ -27,9 +29,9 @@ async function fetchGraph() {
     try {
         const response = await fetch('/graph');
         const data = await response.json();
-        
+
         graph.clear();
-        
+
         if (data.nodes && data.nodes.length > 0) {
             data.nodes.forEach((n: any) => {
                 // Determine colors based on equivalence fusion
@@ -37,11 +39,14 @@ async function fetchGraph() {
                 if (n.colors && n.colors.length > 1) {
                     color = "#ec4899"; // Fused pink
                 }
-                
+
                 // Bounded Poincare mapping expands from [-1, 1] to [-100, 100] coordinates
-                const x = n.poincare_coord ? n.poincare_coord[0] * 100 : Math.random() * 100;
-                const y = n.poincare_coord ? n.poincare_coord[1] * 100 : Math.random() * 100;
-                
+                const rawX = n.poincare_coord ? n.poincare_coord[0] : 0;
+                const rawY = n.poincare_coord ? n.poincare_coord[1] : 0;
+                // If coord is near zero (untrained), spread randomly; otherwise scale normally
+                const x = (Math.abs(rawX) < 0.01) ? (Math.random() - 0.5) * 200 : rawX * 200;
+                const y = (Math.abs(rawY) < 0.01) ? (Math.random() - 0.5) * 200 : rawY * 200;
+
                 graph.addNode(n.id, {
                     x: x,
                     y: y,
@@ -50,16 +55,21 @@ async function fetchGraph() {
                     color: color
                 });
             });
-            
+
             data.links.forEach((l: any) => {
                 try {
                     graph.addEdge(l.source, l.target, { type: 'curve', label: l.label, color: '#555', size: 1.5 });
-                } catch(e) {}
+                } catch (e) { }
             });
-                        
+
             statusEl.innerText = `Graph loaded: \n${graph.order} Nodes, ${graph.size} Edges.`;
+            if (sigmaInstance) {
+                sigmaInstance.refresh();
+                sigmaInstance.getCamera().animatedReset();  // Fit all nodes into viewport
+            }
         } else {
             statusEl.innerText = "Graph is empty.";
+            if (sigmaInstance) sigmaInstance.refresh();
         }
     } catch (e) {
         console.error("Fetch graph failed:", e);
@@ -83,14 +93,14 @@ uploadBtn?.addEventListener('click', async () => {
     const file = fileInput.files[0];
     const formData = new FormData();
     formData.append('file', file);
-    
+
     statusEl.innerText = `Upload started: ${file.name}`;
     try {
         const response = await fetch('/upload', {
             method: 'POST',
             body: formData
         });
-        
+
         if (response.ok) {
             startPolling();
         } else {
@@ -103,25 +113,28 @@ uploadBtn?.addEventListener('click', async () => {
 
 function startPolling() {
     if (pollingTimer) clearInterval(pollingTimer);
-    
+    pipelineComplete = false;
+
+
     // Reset visuals
     progressContainer.style.display = 'block';
     progressText.style.display = 'block';
     progressBar.style.width = '0%';
     progressBar.style.backgroundColor = '#ec4899';
     progressText.innerText = '0%';
-    
+
     pollingTimer = setInterval(async () => {
-        await fetchGraph();
+        if (!pipelineComplete) await fetchGraph();
         await fetchStatus();
     }, pollingInterval);
+
 }
 
 async function fetchStatus() {
     try {
         const response = await fetch('/status');
         const data = await response.json();
-        
+
         if (data.is_processing) {
             statusEl.innerText = `${data.step} (${data.filename})`;
             if (data.total_chunks > 0) {
@@ -134,14 +147,19 @@ async function fetchStatus() {
             if (data.step === "Complete") {
                 statusEl.innerText = `Idle: Pushed ${data.filename}.`;
                 progressBar.style.width = '100%';
-                progressBar.style.backgroundColor = '#10b981'; // Switch to green success
+                progressBar.style.backgroundColor = '#10b981';
                 progressText.innerText = '100% (Complete)';
+                // Stop polling and do one guaranteed final render
+                pipelineComplete = true;
+                if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null; }
+                await fetchGraph();
+
             } else if (data.step && data.step.startsWith("Error")) {
                 statusEl.innerText = `System Failed: ${data.step}`;
                 progressBar.style.backgroundColor = '#ef4444'; // Red fail
             }
         }
-    } catch(e) {
+    } catch (e) {
         console.error("Fetch status failed:", e);
     }
 }
