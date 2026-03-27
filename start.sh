@@ -58,7 +58,7 @@ cd "$SCRIPT_DIR"
 # Poll GROBID /api/isalive — max 90s
 echo "Waiting for GROBID to become ready (max 90s)..."
 GROBID_READY=0
-for i in $(seq 1 45); do
+for i in $(seq 1 90); do
     if curl -sf http://localhost:8070/api/isalive > /dev/null 2>&1; then
         echo "GROBID is ready (${i}x2s elapsed)."
         GROBID_READY=1

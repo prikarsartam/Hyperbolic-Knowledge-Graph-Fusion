@@ -31,7 +31,7 @@ def chunk_text(text: str, chunk_size: int = 120) -> List[str]:
         chunks.append(" ".join(words[i:i + chunk_size]))
     return [c for c in chunks if c.strip()]
 
-def _extract_json_triples(raw: str) -> List[Dict[str, str]]:
+def _parse_llm_json(raw: str) -> List[Dict[str, str]]:
     """
     Robustly extract JSON triple arrays from raw LLM output.
     Handles truncated output, extra prose, markdown code fences.
@@ -63,7 +63,7 @@ def _extract_json_triples(raw: str) -> List[Dict[str, str]]:
             continue
     return triples
 
-def extract_triples_stream(markdown_text: str) -> Iterator[Dict[str, Any]]:
+def extract_triples(markdown_text: str) -> Iterator[Dict[str, Any]]:
     """Extracts a list of subject/predicate/object structures using DeepSeek JSON generation iteratively."""
     model_path = get_config("llm.model_path", "./data/models/DeepSeek-R1-1.5B-Q4_K_M.gguf")
     n_ctx      = get_config("llm.n_ctx", 1024)
@@ -96,9 +96,8 @@ def extract_triples_stream(markdown_text: str) -> Iterator[Dict[str, Any]]:
     )
 
     prompt_template = (
-        "Extract subject-predicate-object triples from the physics text below.\n"
-        "Output ONLY a JSON array. No explanation. No markdown.\n"
-        "Example: [{{\"subject\": \"Electron\", \"predicate\": \"has\", \"object\": \"mass\"}}]\n"
+        "List the key subject-predicate-object relationships from this physics text as JSON.\n"
+        "Output only a JSON array with keys subject, predicate, object. No prose.\n"
         "Text: {text}\n"
         "JSON:"
     )
@@ -116,7 +115,7 @@ def extract_triples_stream(markdown_text: str) -> Iterator[Dict[str, Any]]:
                 temperature=0.0,   # Greedy — maximally deterministic JSON output
             )
             raw_output = response['choices'][0]['text'].strip()
-            triples = _extract_json_triples(raw_output)
+            triples = _parse_llm_json(raw_output)
             if triples:
                 logger.info(f"  Chunk {idx + 1}: extracted {len(triples)} triples.")
             else:

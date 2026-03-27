@@ -13,7 +13,7 @@ import threading
 
 from api.state import session_state
 from core.parser import parse_pdf_to_text
-# Removing isolated deprecated extractor import
+from core.extractor import extract_triples
 from core.embedder import compute_embeddings
 from core.aligner import align_and_filter
 from core.fusion import execute_pushout_fusion
@@ -75,8 +75,7 @@ def process_document(file_path: str, filename: str):
             
             task_status["step"] = "Extracting & embedding triples..."
             # Incremental pushout updates (Streaming)
-            from core.extractor import extract_triples_stream
-            for payload in extract_triples_stream(markdown_text):
+            for payload in extract_triples(markdown_text):
                 task_status["current_chunk"] = payload.get("current_chunk", 0)
                 task_status["total_chunks"] = payload.get("total_chunks", 0)
                 
