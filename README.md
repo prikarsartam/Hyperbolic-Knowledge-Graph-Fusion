@@ -4,6 +4,13 @@ A localized asynchronous knowledge graph extraction and pushout engine designed
 for resource-constrained 16GB CPU-only Ubuntu Linux servers. Converts theoretical
 physics PDFs into structured knowledge graphs embedded in hyperbolic space.
 
+
+---
+
+in progress
+
+---
+
 ## System Architecture
 
 The pipeline executes four sequential stages:
