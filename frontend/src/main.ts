@@ -58,7 +58,7 @@ async function fetchGraph() {
 
             data.links.forEach((l: any) => {
                 try {
-                    graph.addEdge(l.source, l.target, { type: 'curve', label: l.label, color: '#555', size: 1.5 });
+                    graph.addEdge(l.source, l.target, { label: l.label, color: '#6b7280', size: 1.5 });
                 } catch (e) { }
             });
 
